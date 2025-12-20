@@ -4,6 +4,7 @@ import model.Task;
 import model.User;
 import model.Child;
 import persistence.DataManager;
+import ui.MainApp;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
@@ -26,16 +27,27 @@ public class TeacherDashboardPanel extends JPanel {
     private ClassTasksPanel classTasksPanel;
     private StudentProgressPanel progressPanel;
 
-    public TeacherDashboardPanel(DataManager dm) {
+    private MainApp mainApp;
+
+    public TeacherDashboardPanel(DataManager dm, MainApp app) {
+        this.dataManager = dm;
+        this.mainApp = app;
         this.dataManager = dm;
         setLayout(new BorderLayout(10,10));
 
-        JLabel title = new JLabel("Teacher Dashboard");
-        title.setFont(title.getFont().deriveFont(20f));
-        add(title, BorderLayout.NORTH);
+        JPanel top = new JPanel(new BorderLayout());
 
-        JPanel menu = createMenu();
-        add(menu, BorderLayout.WEST);
+        JLabel title = new JLabel("Teacher Dashboard");
+        title.setFont(title.getFont().deriveFont(22f));
+
+        JButton switchRole = new JButton("Switch Role");
+        switchRole.addActionListener(e -> mainApp.showRoleSelect());
+
+        top.add(title, BorderLayout.WEST);
+        top.add(switchRole, BorderLayout.EAST);
+
+        add(top, BorderLayout.NORTH);
+
 
         classTasksPanel = new ClassTasksPanel();
         progressPanel = new StudentProgressPanel();
