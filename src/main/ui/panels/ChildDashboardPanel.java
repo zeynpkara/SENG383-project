@@ -5,11 +5,14 @@ import model.Wish;
 import model.Child;
 import model.User;
 import persistence.DataManager;
+import ui.MainApp;
+import java.time.LocalDate;
+import java.time.temporal.WeekFields;
+import java.util.Locale;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import java.awt.*;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,61 +20,84 @@ import java.util.List;
 public class ChildDashboardPanel extends JPanel {
 
     private DataManager dataManager;
+    private MainApp mainApp;
+
     private CardLayout cardLayout = new CardLayout();
     private JPanel centerCards = new JPanel(cardLayout);
 
     private AssignedTasksPanel assignedPanel;
     private CompletedTasksPanel completedPanel;
     private WishesPanel wishesPanel;
+    private HomePanel homePanel;
 
     private Child loggedChild;
 
-    public ChildDashboardPanel(DataManager dm) {
+    public ChildDashboardPanel(DataManager dm, MainApp app) {
         this.dataManager = dm;
+        this.mainApp = app;
 
-        // Giriş yapan çocuğu buluyoruz
+        // 🔹 Find logged child
         for (User u : dm.loadUsers()) {
             if (u.getRole() == User.Role.CHILD) {
-                loggedChild = (Child) u;
+                loggedChild = new Child(
+                        u.getUserId(),
+                        u.getEmail(),
+                        u.getPassword()
+                );
                 break;
             }
+        }
+
+        if (loggedChild == null) {
+            JOptionPane.showMessageDialog(this, "No child user found!");
+            return;
         }
 
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        JPanel top = new JPanel(new BorderLayout());
         JLabel title = new JLabel("Child Dashboard");
         title.setFont(title.getFont().deriveFont(22f));
-        add(title, BorderLayout.NORTH);
 
-        JPanel leftMenu = createLeftMenu();
-        add(leftMenu, BorderLayout.WEST);
+        JButton switchRole = new JButton("Switch Role");
+        switchRole.addActionListener(e -> mainApp.showRoleSelect());
 
+        top.add(title, BorderLayout.WEST);
+        top.add(switchRole, BorderLayout.EAST);
+        add(top, BorderLayout.NORTH);
+
+        homePanel = new HomePanel();
         assignedPanel = new AssignedTasksPanel();
         completedPanel = new CompletedTasksPanel();
         wishesPanel = new WishesPanel();
 
+        centerCards.add(homePanel, "HOME");
         centerCards.add(assignedPanel, "ASSIGNED");
         centerCards.add(completedPanel, "COMPLETED");
         centerCards.add(wishesPanel, "WISHES");
 
+        add(createLeftMenu(), BorderLayout.WEST);
         add(centerCards, BorderLayout.CENTER);
 
-        cardLayout.show(centerCards, "ASSIGNED");
+        cardLayout.show(centerCards, "HOME");
     }
+
 
     private JPanel createLeftMenu() {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setPreferredSize(new Dimension(160, 0));
 
+        JButton homeBtn = new JButton("Home");
         JButton b1 = new JButton("My Tasks");
         JButton b2 = new JButton("Completed");
         JButton b3 = new JButton("My Wishes");
 
-        b1.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b2.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b3.setAlignmentX(Component.CENTER_ALIGNMENT);
+        homeBtn.addActionListener(e -> {
+            homePanel.reload();
+            cardLayout.show(centerCards, "HOME");
+        });
 
         b1.addActionListener(e -> {
             assignedPanel.reload();
@@ -88,104 +114,107 @@ public class ChildDashboardPanel extends JPanel {
             cardLayout.show(centerCards, "WISHES");
         });
 
-        p.add(Box.createVerticalStrut(10));
-        p.add(b1);
-        p.add(Box.createVerticalStrut(10));
-        p.add(b2);
-        p.add(Box.createVerticalStrut(10));
-        p.add(b3);
-        p.add(Box.createVerticalGlue());
+        for (JButton b : new JButton[]{homeBtn, b1, b2, b3}) {
+            b.setAlignmentX(Component.CENTER_ALIGNMENT);
+            p.add(Box.createVerticalStrut(10));
+            p.add(b);
+        }
 
+        p.add(Box.createVerticalGlue());
         return p;
     }
 
-    private class AssignedTasksPanel extends JPanel {
 
-        private JTable table;
-        private AssignedModel model;
-        private JButton complete;
+    private class HomePanel extends JPanel {
 
-        public AssignedTasksPanel() {
-            setLayout(new BorderLayout(10, 10));
-            setBorder(BorderFactory.createTitledBorder("Assigned Tasks"));
+        private JLabel infoLabel;
 
-            model = new AssignedModel();
-            table = new JTable(model);
-            add(new JScrollPane(table), BorderLayout.CENTER);
+        public HomePanel() {
+            setLayout(new GridLayout(2, 1, 10, 10));
+            setBorder(BorderFactory.createTitledBorder("Overview"));
 
-            complete = new JButton("Mark as Completed");
-            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-            bottom.add(complete);
-            add(bottom, BorderLayout.SOUTH);
+            infoLabel = new JLabel();
+            infoLabel.setFont(infoLabel.getFont().deriveFont(16f));
 
-            complete.addActionListener(e -> completeTask());
+            add(new JLabel("Welcome 👋"));
+            add(infoLabel);
 
             reload();
         }
 
         public void reload() {
-            new SwingWorker<List<Task>, Void>() {
-                @Override
-                protected List<Task> doInBackground() throws Exception {
-                    return dataManager.loadTasks();
+            int pending = 0;
+            for (Task t : dataManager.loadTasks()) {
+                if (t.getAssignedToId().equals(loggedChild.getUserId())
+                        && t.getStatus() == Task.Status.PENDING) {
+                    pending++;
                 }
+            }
 
-                @Override
-                protected void done() {
-                    try {
-                        List<Task> tasks = get();
-                        model.reload(tasks, loggedChild.getUserId());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        JOptionPane.showMessageDialog(AssignedTasksPanel.this,
-                                "Failed to load tasks.");
-                    }
-                }
-            }.execute();
+            infoLabel.setText(
+                    "⭐ Points: " + loggedChild.getTotalPoints()
+                            + " | 🏆 Level: " + loggedChild.getLevel()
+                            + " | 📌 Pending: " + pending
+            );
         }
+    }
+
+
+    private class AssignedTasksPanel extends JPanel {
+
+        private JTable table;
+        private AssignedModel model = new AssignedModel();
+        private JComboBox<String> filterBox;
+
+        public AssignedTasksPanel() {
+
+            filterBox = new JComboBox<>(new String[]{"All", "Today", "This Week"});
+
+            JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            top.add(new JLabel("Filter:"));
+            top.add(filterBox);
+            add(top, BorderLayout.NORTH);
+
+            setLayout(new BorderLayout(10, 10));
+            setBorder(BorderFactory.createTitledBorder("Assigned Tasks"));
+
+            table = new JTable(model);
+            add(new JScrollPane(table), BorderLayout.CENTER);
+
+            JButton complete = new JButton("Mark as Completed");
+            complete.addActionListener(e -> completeTask());
+
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(complete);
+            add(bottom, BorderLayout.SOUTH);
+
+            reload();
+        }
+
+        public void reload() {
+            List<Task> tasks = dataManager.loadTasks();
+            String filter = (String) filterBox.getSelectedItem();
+            model.reload(tasks, loggedChild.getUserId(), filter);
+        }
+
 
         private void completeTask() {
             int row = table.getSelectedRow();
-            if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Select a task.");
-                return;
-            }
+            if (row < 0) return;
 
             Task t = model.getAt(row);
             t.setStatus(Task.Status.COMPLETED);
 
-            new SwingWorker<Boolean, Void>() {
-                @Override
-                protected Boolean doInBackground() throws Exception {
-                    List<Task> list = dataManager.loadTasks();
-                    for (Task x : list) {
-                        if (x.getTaskId().equals(t.getTaskId())) {
-                            x.setStatus(Task.Status.COMPLETED);
-                        }
-                    }
-                    return dataManager.saveTasks(list);
-                }
+            List<Task> tasks = dataManager.loadTasks();
+            for (Task x : tasks)
+                if (x.getTaskId().equals(t.getTaskId()))
+                    x.setStatus(Task.Status.COMPLETED);
 
-                @Override
-                protected void done() {
-                    try {
-                        boolean ok = get();
-                        if (ok) {
-                            JOptionPane.showMessageDialog(AssignedTasksPanel.this,
-                                    "Task marked as completed!");
-                            reload();
-                            completedPanel.reload();
-                        } else {
-                            JOptionPane.showMessageDialog(AssignedTasksPanel.this,
-                                    "Failed to save task.");
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        JOptionPane.showMessageDialog(AssignedTasksPanel.this,
-                                "Error while saving task.");
-                    }
-                }
-            }.execute();
+            dataManager.saveTasks(tasks);
+
+            reload();
+            completedPanel.reload();
+            homePanel.reload();
         }
     }
 
@@ -193,101 +222,82 @@ public class ChildDashboardPanel extends JPanel {
         private List<Task> list = new ArrayList<>();
         private final String[] cols = {"Title", "Due", "Points"};
 
-        public void reload(List<Task> tasks, String childId) {
+        public void reload(List<Task> tasks, String childId, String filter) {
             list.clear();
+            LocalDate today = LocalDate.now();
+            WeekFields wf = WeekFields.of(Locale.getDefault());
+
             for (Task t : tasks) {
-                if (t.getAssignedToId().equals(childId) &&
-                        t.getStatus() == Task.Status.PENDING) {
-                    list.add(t);
-                }
+                if (!t.getAssignedToId().equals(childId)) continue;
+                if (t.getStatus() != Task.Status.PENDING) continue;
+                if (t.getDueDate() == null) continue;
+
+                boolean include = switch (filter) {
+                    case "Today" ->
+                            t.getDueDate().equals(today);
+                    case "This Week" ->
+                            t.getDueDate().get(wf.weekOfWeekBasedYear())
+                                    == today.get(wf.weekOfWeekBasedYear());
+                    default -> true;
+                };
+
+                if (include) list.add(t);
             }
             fireTableDataChanged();
         }
 
-        @Override public int getRowCount() { return list.size(); }
-        @Override public int getColumnCount() { return cols.length; }
-        @Override public String getColumnName(int c) { return cols[c]; }
 
-        @Override
+        public Task getAt(int r) { return list.get(r); }
+        public int getRowCount() { return list.size(); }
+        public int getColumnCount() { return cols.length; }
+        public String getColumnName(int c) { return cols[c]; }
+
         public Object getValueAt(int r, int c) {
             Task t = list.get(r);
-            if (c == 0) return t.getTitle();
-            if (c == 1 && t.getDueDate() != null)
-                return t.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
-            if (c == 2) return t.getPoints();
-            return "";
+            return c == 0 ? t.getTitle()
+                    : c == 1 ? t.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                    : t.getPoints();
         }
-
-        public Task getAt(int row) { return list.get(row); }
     }
 
 
     private class CompletedTasksPanel extends JPanel {
 
         private JTable table;
-        private CompletedModel model;
+        private CompletedModel model = new CompletedModel();
 
         public CompletedTasksPanel() {
             setLayout(new BorderLayout());
             setBorder(BorderFactory.createTitledBorder("Completed Tasks"));
-
-            model = new CompletedModel();
             table = new JTable(model);
             add(new JScrollPane(table), BorderLayout.CENTER);
-
             reload();
         }
 
         public void reload() {
-            new SwingWorker<List<Task>, Void>() {
-                @Override
-                protected List<Task> doInBackground() throws Exception {
-                    return dataManager.loadTasks();
-                }
-
-                @Override
-                protected void done() {
-                    try {
-                        List<Task> tasks = get();
-                        model.reload(tasks, loggedChild.getUserId());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        JOptionPane.showMessageDialog(CompletedTasksPanel.this,
-                                "Failed to load completed tasks.");
-                    }
-                }
-            }.execute();
+            model.reload(dataManager.loadTasks(), loggedChild.getUserId());
         }
     }
 
     private static class CompletedModel extends AbstractTableModel {
         private List<Task> list = new ArrayList<>();
-        private final String[] cols = {"Title", "Due", "Status"};
+        private final String[] cols = {"Title", "Status"};
 
         public void reload(List<Task> tasks, String childId) {
             list.clear();
-            for (Task t : tasks) {
-                if (t.getAssignedToId().equals(childId) &&
-                        (t.getStatus() == Task.Status.COMPLETED ||
-                                t.getStatus() == Task.Status.APPROVED)) {
+            for (Task t : tasks)
+                if (t.getAssignedToId().equals(childId)
+                        && t.getStatus() != Task.Status.PENDING)
                     list.add(t);
-                }
-            }
             fireTableDataChanged();
         }
 
-        @Override public int getRowCount() { return list.size(); }
-        @Override public int getColumnCount() { return cols.length; }
-        @Override public String getColumnName(int c) { return cols[c]; }
-
-        @Override
+        public int getRowCount() { return list.size(); }
+        public int getColumnCount() { return cols.length; }
+        public String getColumnName(int c) { return cols[c]; }
         public Object getValueAt(int r, int c) {
             Task t = list.get(r);
-            if (c == 0) return t.getTitle();
-            if (c == 1 && t.getDueDate() != null)
-                return t.getDueDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
-            if (c == 2) return t.getStatus();
-            return "";
+            return c == 0 ? t.getTitle() : t.getStatus();
         }
     }
 
@@ -295,92 +305,18 @@ public class ChildDashboardPanel extends JPanel {
     private class WishesPanel extends JPanel {
 
         private JTable table;
-        private WishModel model;
+        private WishModel model = new WishModel();
 
         public WishesPanel() {
-            setLayout(new BorderLayout(10, 10));
+            setLayout(new BorderLayout());
             setBorder(BorderFactory.createTitledBorder("My Wishes"));
-
-            model = new WishModel();
             table = new JTable(model);
             add(new JScrollPane(table), BorderLayout.CENTER);
-
-            JButton addWish = new JButton("Add Wish");
-            addWish.addActionListener(e -> openAddWishDialog());
-
-            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-            bottom.add(addWish);
-            add(bottom, BorderLayout.SOUTH);
-
             reload();
         }
 
-        private void openAddWishDialog() {
-            JTextField name = new JTextField();
-            JTextField cost = new JTextField();
-
-            JPanel form = new JPanel(new GridLayout(0,2,5,5));
-            form.add(new JLabel("Wish Name:"));
-            form.add(name);
-            form.add(new JLabel("Cost (Points):"));
-            form.add(cost);
-
-            int ok = JOptionPane.showConfirmDialog(this, form, "New Wish", JOptionPane.OK_CANCEL_OPTION);
-            if (ok != JOptionPane.OK_OPTION) return;
-
-            try {
-                Wish w = new Wish(name.getText(), Integer.parseInt(cost.getText()),
-                        loggedChild.getUserId(), loggedChild.getLevel());
-
-                new SwingWorker<Boolean, Void>() {
-                    @Override
-                    protected Boolean doInBackground() throws Exception {
-                        List<Wish> wi = dataManager.loadWishes();
-                        wi.add(w);
-                        return dataManager.saveWishes(wi);
-                    }
-
-                    @Override
-                    protected void done() {
-                        try {
-                            boolean ok = get();
-                            if (ok) {
-                                JOptionPane.showMessageDialog(WishesPanel.this, "Wish added!");
-                                reload();
-                            } else {
-                                JOptionPane.showMessageDialog(WishesPanel.this, "Failed to save wish.");
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            JOptionPane.showMessageDialog(WishesPanel.this, "Error while saving wish.");
-                        }
-                    }
-                }.execute();
-
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Invalid input.");
-            }
-        }
-
         public void reload() {
-            new SwingWorker<List<Wish>, Void>() {
-                @Override
-                protected List<Wish> doInBackground() throws Exception {
-                    return dataManager.loadWishes();
-                }
-
-                @Override
-                protected void done() {
-                    try {
-                        List<Wish> wishes = get();
-                        model.reload(wishes, loggedChild.getUserId());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        JOptionPane.showMessageDialog(WishesPanel.this,
-                                "Failed to load wishes.");
-                    }
-                }
-            }.execute();
+            model.reload(dataManager.loadWishes(), loggedChild.getUserId());
         }
     }
 
@@ -390,23 +326,20 @@ public class ChildDashboardPanel extends JPanel {
 
         public void reload(List<Wish> wishes, String childId) {
             list.clear();
-            for (Wish w : wishes) {
-                if (w.getRequestedById().equals(childId)) list.add(w);
-            }
+            for (Wish w : wishes)
+                if (w.getRequestedById().equals(childId))
+                    list.add(w);
             fireTableDataChanged();
         }
 
-        @Override public int getRowCount() { return list.size(); }
-        @Override public int getColumnCount() { return cols.length; }
-        @Override public String getColumnName(int c) { return cols[c]; }
-
-        @Override
+        public int getRowCount() { return list.size(); }
+        public int getColumnCount() { return cols.length; }
+        public String getColumnName(int c) { return cols[c]; }
         public Object getValueAt(int r, int c) {
             Wish w = list.get(r);
-            if (c == 0) return w.getName();
-            if (c == 1) return w.getCost();
-            if (c == 2) return w.getStatus();
-            return "";
+            return c == 0 ? w.getName()
+                    : c == 1 ? w.getCost()
+                    : w.getStatus();
         }
     }
 }
