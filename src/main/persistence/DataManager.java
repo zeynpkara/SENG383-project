@@ -6,6 +6,8 @@ import com.google.gson.reflect.TypeToken;
 import model.Task;
 import model.Wish;
 import model.User;
+import com.google.gson.GsonBuilder;
+import java.time.LocalDate;
 
 
 import java.io.*;
@@ -16,11 +18,15 @@ import java.util.List;
 
 
 public class DataManager {
-    private final Gson gson = new Gson();
+    private final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
+            .create();
+
     private final File usersFile = new File("data/users.json");
     private final File tasksFile = new File("data/tasks.json");
     private final File wishesFile = new File("data/wishes.json");
 
+    private static final String TASK_FILE = "data/tasks.ser";
 
     public DataManager(){
         try{ Files.createDirectories(usersFile.toPath().getParent());
