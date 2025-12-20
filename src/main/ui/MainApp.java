@@ -1,12 +1,15 @@
 package ui;
 
+import model.Child;
+import java.awt.BorderLayout;
+import java.awt.*;
 
 import model.User;
 import persistence.DataManager;
 
 
 import javax.swing.*;
-import java.awt.*;
+import java.util.List;
 
 import ui.panels.ChildDashboardPanel;
 import ui.panels.ParentDashboardPanel;
@@ -20,7 +23,52 @@ public class MainApp {
 
     public MainApp(){
         dataManager = new DataManager();
+        seedUsers();
         SwingUtilities.invokeLater(this::createAndShowGui);
+    }
+
+    private void seedUsers() {
+        List<User> users = dataManager.loadUsers();
+
+        boolean hasChild = false;
+        for (User u : users) {
+            if (u instanceof Child) {
+                hasChild = true;
+                break;
+            }
+        }
+
+        if (!hasChild) {
+            users.add(new Child(
+                    "child1",
+                    "child1@mail.com",
+                    "1234"
+            ));
+
+            users.add(new User(
+                    "parent1",
+                    "parent@mail.com",
+                    "1234",
+                    User.Role.PARENT
+            ));
+
+            users.add(new User(
+                    "teacher1",
+                    "teacher@mail.com",
+                    "1234",
+                    User.Role.TEACHER
+            ));
+
+            dataManager.saveUsers(users);
+        }
+    }
+
+
+    public void showRoleSelect() {
+        frame.getContentPane().removeAll();
+        frame.add(new RoleSelectPanel(this::onRoleSelected), BorderLayout.CENTER);
+        frame.revalidate();
+        frame.repaint();
     }
 
 
@@ -39,17 +87,29 @@ public class MainApp {
 
     private void onRoleSelected(User.Role role){
         frame.getContentPane().removeAll();
+
         JPanel panel;
         switch(role){
-            case CHILD: panel = new ChildDashboardPanel(dataManager); break;
-            case PARENT: panel = new ParentDashboardPanel(dataManager); break;
-            case TEACHER: panel = new TeacherDashboardPanel(dataManager); break;
-            default: panel = new JPanel();
+            case CHILD:
+                panel = new ChildDashboardPanel(dataManager, this);
+
+                break;
+            case PARENT:
+                panel = new ParentDashboardPanel(dataManager, this);
+                break;
+            case TEACHER:
+                panel = new TeacherDashboardPanel(dataManager, this);
+                break;
+            default:
+                panel = new JPanel();
         }
+
         frame.add(panel, BorderLayout.CENTER);
         frame.revalidate();
         frame.repaint();
     }
+
+
 
 
     public static void main(String[] args){ new MainApp(); }
