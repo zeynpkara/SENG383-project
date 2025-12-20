@@ -3,16 +3,21 @@ package model;
 public class User {
 
     public enum Role { CHILD, PARENT, TEACHER }
-
+    
     protected String userId;
     protected String email;
     protected String password;
     protected Role role;
-
     public User(String userId, String email, String password, Role role){
         this.userId = userId;
         this.email = email;
         this.password = password;
+        this.role = role;
+    }
+    public User(String userId, Role role) {
+        this.userId = userId;
+        this.email = "";
+        this.password = "";
         this.role = role;
     }
 
