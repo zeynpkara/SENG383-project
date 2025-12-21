@@ -13,6 +13,7 @@ public class Task {
     private int points;
     private Status status;
     private String assignedToId;
+    private int rating;
 
     public Task(String title, String description, LocalDate dueDate, int points, String assignedToId) {
         this.taskId = UUID.randomUUID().toString();
@@ -22,6 +23,8 @@ public class Task {
         this.points = points;
         this.status = Status.PENDING;
         this.assignedToId = assignedToId;
+        this.rating = 0;
+
     }
 
     public String getTaskId() { return taskId; }
@@ -31,6 +34,13 @@ public class Task {
     public int getPoints() { return points; }
     public Status getStatus() { return status; }
     public String getAssignedToId() { return assignedToId; }
+    public int getRating() {
+        return rating;
+    }
+
+    public void setRating(int rating) {
+        this.rating = rating;
+    }
 
     public void setStatus(Status status) { this.status = status; }
 }
