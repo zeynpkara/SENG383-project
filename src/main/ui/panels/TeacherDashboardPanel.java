@@ -8,35 +8,37 @@ import ui.MainApp;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
-import java.time.LocalDate;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class TeacherDashboardPanel extends JPanel {
 
     private DataManager dataManager;
+    private MainApp mainApp;
+
     private CardLayout cardLayout = new CardLayout();
     private JPanel centerCards = new JPanel(cardLayout);
 
-    private ClassTasksPanel classTasksPanel;
-    private StudentProgressPanel progressPanel;
-
-    private MainApp mainApp;
+    private TaskApprovalPanel approvalPanel;
+    private SummaryPanel summaryPanel;
 
     public TeacherDashboardPanel(DataManager dm, MainApp app) {
         this.dataManager = dm;
         this.mainApp = app;
-        this.dataManager = dm;
-        setLayout(new BorderLayout(10,10));
 
+        if (app.getLoggedUser() == null ||
+                app.getLoggedUser().getRole() != User.Role.TEACHER) {
+            JOptionPane.showMessageDialog(this,
+                    "No teacher user logged in!");
+            return;
+        }
+
+        setLayout(new BorderLayout(10, 10));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // ===== TOP =====
         JPanel top = new JPanel(new BorderLayout());
-
         JLabel title = new JLabel("Teacher Dashboard");
         title.setFont(title.getFont().deriveFont(22f));
 
@@ -45,185 +47,304 @@ public class TeacherDashboardPanel extends JPanel {
 
         top.add(title, BorderLayout.WEST);
         top.add(switchRole, BorderLayout.EAST);
-
         add(top, BorderLayout.NORTH);
 
+        approvalPanel = new TaskApprovalPanel();
+        summaryPanel = new SummaryPanel();
 
-        classTasksPanel = new ClassTasksPanel();
-        progressPanel = new StudentProgressPanel();
+        centerCards.add(approvalPanel, "APPROVAL");
+        centerCards.add(summaryPanel, "SUMMARY");
 
-        centerCards.add(classTasksPanel, "TASKS");
-        centerCards.add(progressPanel, "PROGRESS");
-
+        add(createLeftMenu(), BorderLayout.WEST);
         add(centerCards, BorderLayout.CENTER);
 
-        cardLayout.show(centerCards, "TASKS");
+        cardLayout.show(centerCards, "APPROVAL");
     }
 
-    private JPanel createMenu() {
+
+    private JPanel createLeftMenu() {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setPreferredSize(new Dimension(160, 0));
+        p.setPreferredSize(new Dimension(170, 0));
 
-        JButton bTasks = new JButton("Class Tasks");
-        JButton bProgress = new JButton("Students Progress");
-        JButton bAssign = new JButton("Assign Task");
+        JButton approveBtn = new JButton("Approve Tasks");
+        JButton summaryBtn = new JButton("Summary");
 
-        bTasks.setAlignmentX(Component.CENTER_ALIGNMENT);
-        bProgress.setAlignmentX(Component.CENTER_ALIGNMENT);
-        bAssign.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        bTasks.addActionListener(e -> {
-            classTasksPanel.reload();
-            cardLayout.show(centerCards, "TASKS");
+        approveBtn.addActionListener(e -> {
+            approvalPanel.reload();
+            cardLayout.show(centerCards, "APPROVAL");
         });
 
-        bProgress.addActionListener(e -> {
-            progressPanel.reload();
-            cardLayout.show(centerCards, "PROGRESS");
+        summaryBtn.addActionListener(e -> {
+            summaryPanel.reload();
+            cardLayout.show(centerCards, "SUMMARY");
         });
 
-        bAssign.addActionListener(e -> assignTaskToClass());
+        for (JButton b : new JButton[]{approveBtn, summaryBtn}) {
+            b.setAlignmentX(Component.CENTER_ALIGNMENT);
+            p.add(Box.createVerticalStrut(10));
+            p.add(b);
+        }
 
-        p.add(Box.createVerticalStrut(10));
-        p.add(bTasks);
-        p.add(Box.createVerticalStrut(10));
-        p.add(bProgress);
-        p.add(Box.createVerticalStrut(20));
-        p.add(bAssign);
         p.add(Box.createVerticalGlue());
-
         return p;
     }
 
-    private void assignTaskToClass() {
-        JTextField title = new JTextField();
-        JTextField desc = new JTextField();
-        JTextField points = new JTextField();
 
-        JPanel form = new JPanel(new GridLayout(0,2,5,5));
-        form.add(new JLabel("Title:")); form.add(title);
-        form.add(new JLabel("Description:")); form.add(desc);
-        form.add(new JLabel("Points:")); form.add(points);
+    private class TaskApprovalPanel extends JPanel {
 
-        int ok = JOptionPane.showConfirmDialog(this, form, "Assign Class Task", JOptionPane.OK_CANCEL_OPTION);
-        if (ok != JOptionPane.OK_OPTION) return;
+        private JTable table;
+        private TaskModel model = new TaskModel();
 
-        try {
+        public TaskApprovalPanel() {
+            setLayout(new BorderLayout(10, 10));
+
+            table = new JTable(model);
+            add(new JScrollPane(table), BorderLayout.CENTER);
+
+            JComboBox<Integer> ratingBox =
+                    new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
+
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            bottom.add(new JLabel("Rating:"));
+            bottom.add(ratingBox);
+
+            JButton approve = new JButton("Approve");
+            JButton reject = new JButton("Reject");
+
+            approve.addActionListener(e ->
+                    approveTask((Integer) ratingBox.getSelectedItem()));
+            reject.addActionListener(e -> rejectTask());
+
+            bottom.add(approve);
+            bottom.add(reject);
+
+            add(bottom, BorderLayout.SOUTH);
+
+            reload();
+        }
+
+        private void approveTask(int rating) {
+            int row = table.getSelectedRow();
+            if (row < 0) return;
+
+            Task selected = model.getAt(row);
+
             List<Task> tasks = dataManager.loadTasks();
-            LocalDate dueDate = LocalDate.now().plusDays(3);
+            List<User> users = dataManager.loadUsers();
 
-            for (User u : dataManager.loadUsers()) {
-                if (u.getRole() == User.Role.CHILD) {
-                    Task t = new Task(title.getText(), desc.getText(), dueDate, Integer.parseInt(points.getText()), u.getUserId());
-                    tasks.add(t);
+            for (Task t : tasks) {
+                if (t.getTaskId().equals(selected.getTaskId())) {
+                    t.setStatus(Task.Status.APPROVED);
+                    t.setRating(rating);
+
+                    for (User u : users) {
+                        if (u instanceof Child ch &&
+                                ch.getUserId().equals(t.getAssignedToId())) {
+                            ch.addPoints(t.getPoints());
+                        }
+                    }
                 }
             }
 
             dataManager.saveTasks(tasks);
-            JOptionPane.showMessageDialog(this, "Task assigned to entire class.");
-            classTasksPanel.reload();
+            dataManager.saveUsers(users);
 
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Invalid input.");
-        }
-    }
-
-
-    private class ClassTasksPanel extends JPanel {
-
-        private JTable table;
-        private TaskModel model;
-
-        public ClassTasksPanel() {
-            setLayout(new BorderLayout());
-            setBorder(BorderFactory.createTitledBorder("All Class Tasks"));
-
-            model = new TaskModel();
-            table = new JTable(model);
-
-            add(new JScrollPane(table), BorderLayout.CENTER);
             reload();
+            summaryPanel.reload(); 
         }
 
-        public void reload() {
+        private void rejectTask() {
+            int row = table.getSelectedRow();
+            if (row < 0) return;
+
+            Task selected = model.getAt(row);
+            List<Task> tasks = dataManager.loadTasks();
+
+            for (Task t : tasks)
+                if (t.getTaskId().equals(selected.getTaskId()))
+                    t.setStatus(Task.Status.REJECTED);
+
+            dataManager.saveTasks(tasks);
+
+            reload();
+            summaryPanel.reload(); 
+        }
+
+        private void reload() {
             model.reload(dataManager.loadTasks());
         }
     }
 
-    private static class TaskModel extends AbstractTableModel {
-        private List<Task> list = new ArrayList<>();
-        private final String[] cols = {"Child ID", "Title", "Status", "Points"};
 
-        public void reload(List<Task> tasks) {
-            list = tasks;
-            fireTableDataChanged();
-        }
+    private class SummaryPanel extends JPanel {
 
-        @Override public int getRowCount() { return list.size(); }
-        @Override public int getColumnCount() { return cols.length; }
-        @Override public String getColumnName(int c) { return cols[c]; }
+        private JLabel totalLbl = new JLabel();
+        private JLabel approvedLbl = new JLabel();
+        private JLabel rejectedLbl = new JLabel();
+        private JLabel avgRatingLbl = new JLabel();
 
-        @Override
-        public Object getValueAt(int r, int c) {
-            Task t = list.get(r);
-            if (c == 0) return t.getAssignedToId();
-            if (c == 1) return t.getTitle();
-            if (c == 2) return t.getStatus();
-            if (c == 3) return t.getPoints();
-            return "";
-        }
-    }
+        private TaskChartPanel chartPanel = new TaskChartPanel();
+        private JTable childTable;
+        private ChildSummaryModel model = new ChildSummaryModel();
 
-    private class StudentProgressPanel extends JPanel {
+        public SummaryPanel() {
+            setLayout(new BorderLayout(10, 10));
 
-        private JTable table;
-        private StudentModel model;
+            JPanel stats = new JPanel(new GridLayout(1, 4, 10, 10));
+            stats.setBorder(BorderFactory.createTitledBorder("Task Summary"));
 
-        public StudentProgressPanel() {
-            setLayout(new BorderLayout());
-            setBorder(BorderFactory.createTitledBorder("Student Progress"));
+            stats.add(totalLbl);
+            stats.add(approvedLbl);
+            stats.add(rejectedLbl);
+            stats.add(avgRatingLbl);
 
-            model = new StudentModel();
-            table = new JTable(model);
+            add(stats, BorderLayout.NORTH);
 
-            add(new JScrollPane(table), BorderLayout.CENTER);
+            chartPanel.setPreferredSize(new Dimension(450, 260));
+            chartPanel.setBorder(
+                    BorderFactory.createTitledBorder("Task Status Chart"));
+            add(chartPanel, BorderLayout.CENTER);
+
+            childTable = new JTable(model);
+            add(new JScrollPane(childTable), BorderLayout.SOUTH);
+
             reload();
         }
 
         public void reload() {
-            List<Child> children = new ArrayList<>();
-            for (User u : dataManager.loadUsers()) {
-                if (u.getRole() == User.Role.CHILD) {
-                    try { children.add((Child) u); }
-                    catch (Exception ignored) {}
+            List<Task> tasks = dataManager.loadTasks();
+            List<User> users = dataManager.loadUsers();
+
+            int total = tasks.size();
+            int approved = 0;
+            int rejected = 0;
+            int ratingSum = 0;
+            int ratedCount = 0;
+
+            for (Task t : tasks) {
+                if (t.getStatus() == Task.Status.APPROVED) approved++;
+                if (t.getStatus() == Task.Status.REJECTED) rejected++;
+                if (t.getRating() > 0) {
+                    ratingSum += t.getRating();
+                    ratedCount++;
                 }
             }
-            model.setChildren(children);
+
+            double avgRating = ratedCount == 0 ? 0 :
+                    (double) ratingSum / ratedCount;
+
+            totalLbl.setText("📌 Total: " + total);
+            approvedLbl.setText("✅ Approved: " + approved);
+            rejectedLbl.setText("❌ Rejected: " + rejected);
+            avgRatingLbl.setText("⭐ Avg Rating: " +
+                    String.format("%.2f", avgRating));
+
+            chartPanel.updateData(approved, rejected);
+            model.reload(users);
         }
     }
 
-    private static class StudentModel extends AbstractTableModel {
 
-        private List<Child> list = new ArrayList<>();
-        private final String[] cols = {"Child ID", "Level", "Points"};
+    private class TaskChartPanel extends JPanel {
 
-        public void setChildren(List<Child> children) {
-            list = children;
+        private int approved;
+        private int rejected;
+
+        public void updateData(int approved, int rejected) {
+            this.approved = approved;
+            this.rejected = rejected;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g;
+
+            int w = getWidth();
+            int h = getHeight();
+
+            int barWidth = 80;
+            int gap = 60;
+
+            int max = Math.max(approved, rejected);
+            if (max == 0) {
+                g2.drawString("No data available", w / 2 - 40, h / 2);
+                return;
+            }
+
+            int approvedH = (int) ((approved / (double) max) * (h - 80));
+            int rejectedH = (int) ((rejected / (double) max) * (h - 80));
+
+            int x1 = w / 2 - barWidth - gap / 2;
+            int x2 = w / 2 + gap / 2;
+
+            g2.setColor(new Color(76, 175, 80));
+            g2.fillRect(x1, h - approvedH - 40, barWidth, approvedH);
+
+            g2.setColor(new Color(244, 67, 54));
+            g2.fillRect(x2, h - rejectedH - 40, barWidth, rejectedH);
+
+            g2.setColor(Color.BLACK);
+            g2.drawString("Approved", x1 + 10, h - 15);
+            g2.drawString("Rejected", x2 + 10, h - 15);
+        }
+    }
+
+
+    private static class TaskModel extends AbstractTableModel {
+
+        private List<Task> list = new ArrayList<>();
+        private final String[] cols = {"Child", "Title", "Points"};
+
+        public void reload(List<Task> tasks) {
+            list.clear();
+            for (Task t : tasks)
+                if (t.getStatus() == Task.Status.COMPLETED)
+                    list.add(t);
             fireTableDataChanged();
         }
 
-        @Override public int getRowCount() { return list.size(); }
-        @Override public int getColumnCount() { return cols.length; }
-        @Override public String getColumnName(int c) { return cols[c]; }
+        public Task getAt(int r) { return list.get(r); }
+        public int getRowCount() { return list.size(); }
+        public int getColumnCount() { return cols.length; }
+        public String getColumnName(int c) { return cols[c]; }
 
-        @Override
+        public Object getValueAt(int r, int c) {
+            Task t = list.get(r);
+            return switch (c) {
+                case 0 -> t.getAssignedToId();
+                case 1 -> t.getTitle();
+                default -> t.getPoints();
+            };
+        }
+    }
+
+    private static class ChildSummaryModel extends AbstractTableModel {
+
+        private List<Child> list = new ArrayList<>();
+        private final String[] cols = {"Child ID", "Points", "Level"};
+
+        public void reload(List<User> users) {
+            list.clear();
+            for (User u : users)
+                if (u instanceof Child)
+                    list.add((Child) u);
+            fireTableDataChanged();
+        }
+
+        public int getRowCount() { return list.size(); }
+        public int getColumnCount() { return cols.length; }
+        public String getColumnName(int c) { return cols[c]; }
+
         public Object getValueAt(int r, int c) {
             Child ch = list.get(r);
-            if (c == 0) return ch.getUserId();
-            if (c == 1) return ch.getLevel();
-            if (c == 2) return ch.getTotalPoints();
-            return "";
+            return switch (c) {
+                case 0 -> ch.getUserId();
+                case 1 -> ch.getTotalPoints();
+                default -> ch.getLevel();
+            };
         }
     }
 }
