@@ -1,31 +1,26 @@
 package ui;
 
 import model.Child;
-import java.awt.BorderLayout;
-import java.awt.*;
-
 import model.User;
 import persistence.DataManager;
-
+import ui.panels.*;
 
 import javax.swing.*;
+import java.awt.*;
 import java.util.List;
 
-import ui.panels.ChildDashboardPanel;
-import ui.panels.ParentDashboardPanel;
-import ui.panels.RoleSelectPanel;
-import ui.panels.TeacherDashboardPanel;
-
 public class MainApp {
+
     private JFrame frame;
     private DataManager dataManager;
+    private User loggedUser;
 
-
-    public MainApp(){
+    public MainApp() {
         dataManager = new DataManager();
         seedUsers();
         SwingUtilities.invokeLater(this::createAndShowGui);
     }
+
 
     private void seedUsers() {
         List<User> users = dataManager.loadUsers();
@@ -64,35 +59,61 @@ public class MainApp {
     }
 
 
+    public void setLoggedUser(User u) {
+        this.loggedUser = u;
+        System.out.println("Logged user set: " + u.getUserId());
+    }
+
+    public User getLoggedUser() {
+        return loggedUser;
+    }
+
+
+    private void createAndShowGui() {
+        frame = new JFrame("KidTask");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(1000, 700);
+        frame.setLayout(new BorderLayout());
+
+        showRoleSelect();
+
+        frame.setVisible(true);
+    }
+
     public void showRoleSelect() {
         frame.getContentPane().removeAll();
-        frame.add(new RoleSelectPanel(this::onRoleSelected), BorderLayout.CENTER);
+
+        RoleSelectPanel rsp = new RoleSelectPanel(this::onRoleSelected);
+        frame.add(rsp, BorderLayout.CENTER);
+
         frame.revalidate();
         frame.repaint();
     }
 
 
-    private void createAndShowGui(){
-        frame = new JFrame("KidTask");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000,700);
-        frame.setLayout(new BorderLayout());
+    private void onRoleSelected(User.Role role) {
 
+        User selectedUser = null;
+        for (User u : dataManager.loadUsers()) {
+            if (u.getRole() == role) {
+                selectedUser = u;
+                break;
+            }
+        }
 
-        RoleSelectPanel rsp = new RoleSelectPanel(this::onRoleSelected);
-        frame.add(rsp, BorderLayout.CENTER);
-        frame.setVisible(true);
-    }
+        if (selectedUser == null) {
+            JOptionPane.showMessageDialog(frame, "No user found for role: " + role);
+            return;
+        }
 
+        setLoggedUser(selectedUser);
 
-    private void onRoleSelected(User.Role role){
         frame.getContentPane().removeAll();
 
         JPanel panel;
-        switch(role){
+        switch (role) {
             case CHILD:
                 panel = new ChildDashboardPanel(dataManager, this);
-
                 break;
             case PARENT:
                 panel = new ParentDashboardPanel(dataManager, this);
@@ -110,7 +131,7 @@ public class MainApp {
     }
 
 
-
-
-    public static void main(String[] args){ new MainApp(); }
+    public static void main(String[] args) {
+        new MainApp();
+    }
 }
