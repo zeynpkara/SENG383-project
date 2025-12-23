@@ -139,6 +139,62 @@ Helped ensure clarity and academic tone in documentation
 !! All AI tools were used responsibly and ethically.
 The project’s architecture, coding, and final outputs reflect the developer’s own effort and understanding.
 
+
+
+** Folder & File Descriptions
+ model/
+
+Contains the core data models of the application.
+
+User: Base user class with role information
+
+Child: Extends User, includes points and level system
+
+Task: Represents tasks with status, rating, points, and deadlines
+
+Wish: Represents rewards requested by children
+
+ persistence/
+
+Responsible for data storage and retrieval.
+
+DataManager: Handles reading and writing JSON files (users, tasks, wishes)
+
+ ui/
+
+Contains all UI-related classes.
+
+MainApp: Entry point of the application, manages role switching
+
+panels/: Role-based dashboard panels implemented using Java Swing
+
+ ui/panels/
+
+Each panel corresponds to a specific user role.
+
+RoleSelectPanel: Role selection screen
+
+ChildDashboardPanel: Child view (tasks, points, wishes, ratings)
+
+ParentDashboardPanel: Parent view (task creation and approval)
+
+TeacherDashboardPanel: Teacher view (task approval, rating, summary & charts)
+
+ data/
+
+Stores application data in JSON format.
+
+users.json: User information
+
+tasks.json: Task details and statuses
+
+wishes.json: Reward requests
+
+
+
+
+
+
  ** Developer Information
 
 Name: Zeynep Kara
