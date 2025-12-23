@@ -1,0 +1,163 @@
+* KidTask – Task & Reward Management System
+
+KidTask is a Java Swing–based desktop application designed to help children develop responsibility through task management and a reward system. Parents and teachers can assign, approve, and evaluate tasks, while children complete tasks, earn points, and track their progress.
+
+ **Project Purpose
+
+The goal of KidTask is to:
+
+Encourage children to complete daily responsibilities
+
+Provide a structured task approval and rating system
+
+Track progress using points, levels, and dashboards
+
+Apply Object-Oriented Programming principles in a real-world project
+
+ ** User Roles & Features
+ -Child
+
+View assigned tasks
+
+Filter tasks (today / this week / all)
+
+Mark tasks as completed
+
+View completed tasks and ratings
+
+Earn points and level up
+
+View and manage wishes
+
+ -Parent
+
+Create and assign tasks to children
+
+Approve or reject completed tasks
+
+Rate tasks (1–5)
+
+View child progress and points
+
+Manage wishes
+
+ -Teacher
+
+Approve or reject completed tasks
+
+Rate tasks (1–5)
+
+View dashboard summary
+
+View statistics (approved vs rejected tasks)
+
+Visualize data using charts
+
+ ** Main Functionalities
+
+Task assignment and tracking
+
+Task approval & rating system
+
+Points and level system for children
+
+Role-based dashboards (Child / Parent / Teacher)
+
+Persistent data storage using JSON
+
+Visual dashboard with charts
+ ** How to Run the Project
+
+Open the project in IntelliJ IDEA
+
+Make sure Java SDK (Java 17 or compatible) is installed
+
+Run the MainApp.java file
+
+Select a role from the Role Selection screen
+
+ ** Object-Oriented Design
+
+The project follows core OOP principles:
+
+Encapsulation: Private fields with public getters/setters
+
+Inheritance: Child class extends User
+
+Polymorphism: Role-based behavior via User.Role
+
+Separation of Concerns: Model, UI, and Persistence layers
+
+ ** AI Tool Usage
+
+In this project, different AI-powered tools were used at specific stages of the software development lifecycle. Each tool was selected based on its strengths and used as a support mechanism, while the core design decisions and implementations were carried out by the developer.
+
+- DeepSeek
+
+Used mainly during the implementation phase
+
+Assisted in understanding complex logic and refining task workflows
+
+Helped with algorithmic thinking and feature implementation strategies
+
+- Cursor AI
+
+Used during the coding phase
+
+Provided intelligent code completion and refactoring suggestions
+
+Accelerated Java development and improved code readability
+
+Assisted in fixing syntax and logical errors
+
+- Figma & Canva
+
+Used during the design phase
+
+Figma was used to plan UI layouts and dashboard structures
+
+Canva was used to design visual components and layout ideas
+
+Helped visualize role-based dashboards before Swing implementation
+
+- Slidesgo
+
+Used for preparing the final presentation slides
+
+Provided structured and professional slide templates
+
+Improved the visual quality and organization of the project presentation
+
+- Google Gemini
+
+Used during the report writing and presentation preparation
+
+Assisted in improving explanations, wording, and structure
+
+Helped ensure clarity and academic tone in documentation
+
+!! All AI tools were used responsibly and ethically.
+The project’s architecture, coding, and final outputs reflect the developer’s own effort and understanding.
+
+ ** Developer Information
+
+Name: Zeynep Kara
+
+Student ID: 202027012
+
+Course: SENG383 
+
+
+ ** Notes
+
+This project is developed for academic purposes(SENG383 COURSE.
+
+All data is stored locally using JSON files.
+
+The application is designed as a desktop application using Java Swing.
+
+ ** Final Status
+
+✔ All core requirements implemented
+✔ Optional features (rating & dashboard charts) included
+✔ Ready for final submission 
