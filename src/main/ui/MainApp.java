@@ -93,6 +93,7 @@ public class MainApp {
 
     private void onRoleSelected(User.Role role) {
 
+        // 🔹 1️⃣ users.json’dan role’a uygun kullanıcıyı bul
         User selectedUser = null;
         for (User u : dataManager.loadUsers()) {
             if (u.getRole() == role) {
