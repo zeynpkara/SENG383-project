@@ -1,6 +1,5 @@
 package persistence;
 
-
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import model.Task;
@@ -9,13 +8,11 @@ import model.User;
 import com.google.gson.GsonBuilder;
 import java.time.LocalDate;
 
-
 import java.io.*;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-
 
 public class DataManager {
     private final Gson gson = new GsonBuilder()
@@ -29,7 +26,8 @@ public class DataManager {
     private static final String TASK_FILE = "data/tasks.ser";
 
     public DataManager(){
-        try{ Files.createDirectories(usersFile.toPath().getParent());
+        try {
+            Files.createDirectories(usersFile.toPath().getParent());
             if(!usersFile.exists()) usersFile.createNewFile();
             if(!tasksFile.exists()) tasksFile.createNewFile();
             if(!wishesFile.exists()) wishesFile.createNewFile();
@@ -39,26 +37,24 @@ public class DataManager {
         } catch(IOException e){ e.printStackTrace(); }
     }
 
-
     private void initIfEmpty(File f) throws IOException{
         if(f.length() == 0) try(Writer w = new FileWriter(f)){ w.write("[]"); }
     }
-
 
     private <T> List<T> readList(File f, Class<T> clazz){
         try(Reader r = new FileReader(f)){
             Type type = TypeToken.getParameterized(List.class, clazz).getType();
             List<T> list = gson.fromJson(r, type);
             return list == null ? new ArrayList<>() : list;
-        }catch(Exception e){ e.printStackTrace(); return new ArrayList<>(); }
+        } catch(Exception e){ e.printStackTrace(); return new ArrayList<>(); }
     }
-
 
     private <T> boolean writeList(File f, List<T> list){
-        try(Writer w = new FileWriter(f)){ gson.toJson(list, w); return true; }
-        catch(IOException e){ e.printStackTrace(); return false; }
+        try(Writer w = new FileWriter(f)){
+            gson.toJson(list, w);
+            return true;
+        } catch(IOException e){ e.printStackTrace(); return false; }
     }
-
 
     public List<User> loadUsers(){ return readList(usersFile, User.class); }
     public boolean saveUsers(List<User> users){ return writeList(usersFile, users); }
@@ -66,4 +62,10 @@ public class DataManager {
     public boolean saveTasks(List<Task> tasks){ return writeList(tasksFile, tasks); }
     public List<Wish> loadWishes(){ return readList(wishesFile, Wish.class); }
     public boolean saveWishes(List<Wish> wishes){ return writeList(wishesFile, wishes); }
+
+    public void addWish(Wish w) {
+        List<Wish> current = loadWishes(); 
+        current.add(w);                     
+        saveWishes(current);                
+    }
 }
